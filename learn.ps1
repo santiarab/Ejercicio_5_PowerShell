@@ -43,8 +43,6 @@ $url_base="https://rickandmortyapi.com/api/character"
 $character_json_list = Get-Content -Path $FilePath | Out-String
 $json_list = $character_json_list | ForEach-Object { $_ | ConvertFrom-Json }
 
-
-
 $character_json_list = New-Object System.Collections.ArrayList
 foreach($character in $json_list){ # Subo el json en la lista
     $character_json_list.Add($character) | Out-Null

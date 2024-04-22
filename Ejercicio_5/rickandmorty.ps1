@@ -49,12 +49,22 @@ foreach ($character in $json_list) {
    # Subo el json en la lista
    $character_json_list.Add($character) | Out-Null
 }
-#Buscar por ID
-if ( !($null -eq $id -or $id.Length -eq 0 )) {
-   foreach ($character in $id) {
-      $character_json = $character_json_list | Where-Object { $_.id -eq $character }
-      if ( $null -eq $character_json ) {
-         $character_json = Invoke-WebRequest "$url_base/$character" | ConvertFrom-Json
+function searchById {
+   param(
+      [Int]
+      [ValidateScript({ $_ -gt 0 })]
+      $characterId
+   )
+   $character_json = $character_json_list | Where-Object { $_.id -eq $characterId }
+   if ( $null -eq $character_json ) {
+      try {
+         
+         $character_json = Invoke-WebRequest "$url_base/$characterId" | ConvertFrom-Json
+      }
+      catch {
+         Write-Output "Hubo un error al buscar el Personaje"
+      }
+      try {
          $character_json = $character_json | Select-Object `
          @{Name = 'id'; Expression = { $_.id } },
          @{Name = 'Name'; Expression = { $_.name } },
@@ -64,14 +74,79 @@ if ( !($null -eq $id -or $id.Length -eq 0 )) {
          @{Name = 'Gender'; Expression = { $_.gender } },
          @{Name = 'Origin'; Expression = { $_.origin.name } },
          @{Name = 'Location'; Expression = { $_.location.name } }
-         $character_json_list.Add($character_json) | Out-Null
-         Write-Output "Character info:"
-         Write-Output $character_json
       }
-      else {
+      catch {
+         Write-Output "Hubo un error al transformar el respons en JSON"
+      }
+   }
+   return $character_json
+}
+
+function searchByName {
+   param(
+      [String]
+      $characterName
+   )
+   #$character_json = $character_json_list | Where-Object { $_.id -eq $characterName }
+   #if ( $null -eq $character_json ) {
+   try {
+   
+      $character_json = Invoke-WebRequest "$url_base/?name=$characterName" | ConvertFrom-Json
+   }
+   catch {
+      Write-Output "Hubo un error al buscar el Personaje"
+   }
+   try {
+      $character_json = $character_json.results  
+      $character_json = $character_json |  Select-Object `
+      @{Name = 'id'; Expression = { $_.id } },
+      @{Name = 'Name'; Expression = { $_.name } },
+      @{Name = 'Status'; Expression = { $_.status } },
+      @{Name = 'Species'; Expression = { $_.species } },
+      @{Name = 'Type'; Expression = { $_.type } },
+      @{Name = 'Gender'; Expression = { $_.gender } },
+      @{Name = 'Origin'; Expression = { $_.origin.name } },
+      @{Name = 'Location'; Expression = { $_.location.name } }
+   }
+   catch {
+      Write-Output "Hubo un error al transformar el respons en JSON"
+   }
+   return $character_json
+}
+
+if ( !($null -eq $nombre -or $nombre.Length -eq 0)) {
+   if (!( $null -eq $id -or $id.Length -eq 0)) {
+      foreach ($character in $id) {
+         $result = searchById -characterId $character
+         if (!$character_json_list.Contains($result)) {
+            $character_json_list.Add($result) | Out-Null
+         }
          Write-Output "Character info:"
-         Write-Output $character_json
-      }   
-   } 
+         Write-Output $result
+      }
+   }
+   else {
+      foreach ($characterByName in $nombre) {
+         $result = searchByName -characterName $characterByName
+         foreach ($ch in $result) {
+            $ch = $ch | ConvertTo-Json
+            $ch = $ch | ConvertFrom-Json
+            $aux = $character_json_list | Where-Object { $_.id -eq $ch.id }
+            if (!($character_json_list | Where-Object { $_.id -eq $ch.id })) {
+               $character_json_list.Add($ch) | Out-Null
+            }
+         }
+      }
+   }
+}
+else {
+   foreach ($character in $id) {
+      $result = searchById -characterId $character
+      if (!$character_json_list.Contains($result)) {
+         $character_json_list.Add($result) | Out-Null
+      }
+      Write-Output "Character info:"
+      Write-Output $result
+   }
 }
 $character_json_list | ConvertTo-Json | Out-File -FilePath $FilePath
